@@ -41,23 +41,49 @@ def get_weekly_average():
 
     today = date.today()
 
-    num_days = 1 
+    #initialise as 0
+    num_days = 0 
     #which previous date we want to look at
     day = today - timedelta(days = num_days)
-
-    daily_totals = [0] * 7
+    
+    #initialise array to store cumulative results
+    weekly_interval_array = [0] * 48
 
     for i in range(0,7):
-        #set initial date
+
+
+        #set initial date starting yesterday
+        num_days += 1
         day = today - timedelta(days = num_days)
         #creates the json data response
         historic_givenergy_data = fetch_data_points(API_KEY, inverter_serial_number, day)
         #turns the json data into a pandas df
-        historic_givenergy_dataframe = pd.json_normalize(historic_givenergy_data)
-        #selects the value for total energy consumption in the house for that day and stores in a list
-        daily_totals[i] = historic_givenergy_dataframe['today.consumption'].iloc[-1]
+        daily_total = pd.json_normalize(historic_givenergy_data)
 
-        num_days += 1
-        print(num_days)
+        #subset of full df
 
-    return daily_totals
+    #turn time column from string into time
+        daily_total['time'] = pd.to_datetime(daily_total['time'])
+    #sorts them into halfhour sections
+
+        daily_total['HalfHourInterval'] = daily_total['time'].dt.floor('30T')
+
+        interval_consumption = daily_total.groupby('HalfHourInterval').last().reset_index()
+        cumulative_consumption_array = interval_consumption['today.consumption'].tolist()
+
+    #initialise array to store results
+        interval_consumption_array = [0] * 48
+        
+        #copy over first values
+        interval_consumption_array[0] = cumulative_consumption_array[0]
+        weekly_interval_array[0] += interval_consumption_array[0]
+        for i in range(1,len(cumulative_consumption_array)):
+
+            interval_consumption_array[i] = cumulative_consumption_array[i] - cumulative_consumption_array[(i-1)]
+            weekly_interval_array[i] += interval_consumption_array[i]
+        
+    weekly_interval_array = np.array(weekly_interval_array) /7 
+       
+        
+
+    return weekly_interval_array

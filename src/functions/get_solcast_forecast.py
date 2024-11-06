@@ -23,18 +23,30 @@ def get_solcast_forecast():
         else:
             print(f"Error: Got status code {response.status_code} for {rooftop_resource_id}")
 
-    all_predictions
-    #Turn JSON data into a dataframe
+    #Turn JSON data into a dataframe, none this data frame combines both SE and SW solar panel data
     prediction_dataframe = pd.DataFrame(all_predictions)
 
-    #First turn the datatypes to datetime as before they are string???? Stores the casted data in a new column
+    #First turn the datatypes to datetime as before they are strings, Stores the casted data in a new column
     prediction_dataframe['date'] = pd.to_datetime(prediction_dataframe['period_end'])
     #  this truncates the time part
     prediction_dataframe['date'] = prediction_dataframe['date'].dt.date
 
     #print(prediction_dataframe)
     tomorrow = date.today() + timedelta(days = 1)
-    #sum all the values that match up with tomorrows date specifically
-    tomorrow_predicted_pv = prediction_dataframe[prediction_dataframe['date'] == tomorrow]['pv_estimate'].sum()/2
-    print(tomorrow_predicted_pv)
-    return tomorrow_predicted_pv
+    #sum all the values that match up with tomorrows date specifically and we are only interestted in the pv estimate column
+    tomorrow_predicted_pv = prediction_dataframe[prediction_dataframe['date'] == tomorrow]['pv_estimate']
+
+    #turn the series into a list to reset the index back to 0-96
+    list_values = tomorrow_predicted_pv.tolist()
+
+    #recover se and sw predictions independantly
+    se = list_values[:48]
+    sw = list_values[48:]
+
+    #combine them into one total forecast of length 48
+    total_forecast = []
+    for i in range(len(se)):
+        total_forecast.append(se[i] + sw[i])
+
+
+    return total_forecast
